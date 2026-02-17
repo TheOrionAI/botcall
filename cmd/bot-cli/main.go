@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os/exec"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -29,11 +28,17 @@ func main() {
 	log.Printf("   Agent ID: %s", *agentID)
 	log.Printf("   Discovery: %s", *discoveryURL)
 
+	// Extract just host:port for listening
+	listenAddr := *endpointAddr
 	publicEndpoint := *endpointAddr
+	if len(listenAddr) > 7 && listenAddr[0:7] == "http://" {
+		listenAddr = listenAddr[7:]
+		// keep public as full URL
+	}
 
 	// Start localtunnel if requested
 	if *useLocaltunnel {
-		publicEndpoint = startLocaltunnelSimple(*endpointAddr)
+		publicEndpoint = startLocaltunnelSimple(listenAddr)
 		log.Printf("🌐 Public URL: %s", publicEndpoint)
 	}
 
@@ -42,7 +47,7 @@ func main() {
 		log.Fatalf("Failed to register: %v", err)
 	}
 
-	log.Printf("📞 Listening for calls on %s", *endpointAddr)
+	log.Printf("📞 Listening for calls on %s", listenAddr)
 	log.Printf("   Humans can dial: %s/v1/lookup/%s", *discoveryURL, *agentID)
 
 	// Keepalive ticker
@@ -56,9 +61,19 @@ func main() {
 	// HTTP server for incoming calls
 	http.HandleFunc("/call", handleIncomingCall)
 	http.HandleFunc("/health", handleHealth)
-	http.HandleFunc("/ws", handleWebSocket)
+	// Always return OK for OPTIONS/preflight
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "agent": *agentID})
+	})
 
-	log.Fatal(http.ListenAndServe(*endpointAddr, nil))
+	log.Fatal(http.ListenAndServe(listenAddr, nil))
 }
 
 func startLocaltunnelSimple(endpoint string) string {
