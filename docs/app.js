@@ -5,7 +5,7 @@
 
 class BotCallPWA {
     constructor() {
-        this.discoveryUrl = localStorage.getItem('discoveryUrl') || 'http://localhost:8080';
+        this.discoveryUrl = (typeof BOTCALL_CONFIG !== 'undefined' ? BOTCALL_CONFIG.discoveryUrl : null) || localStorage.getItem('discoveryUrl') || 'http://localhost:8080';
         this.botId = '';
         this.callActive = false;
         this.currentMode = 'voice';

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BotCall — Voice for AI</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface-2: #1a1a25;
+            --text: #e8e8ec;
+            --text-muted: #6b6b7b;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--surface-2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .logo { font-size: 1.5rem; }
+        .brand { font-weight: 600; font-size: 1.1rem; }
+        .status {
+            margin-left: auto;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .status.online { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+        .status.connecting { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .status.offline { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            gap: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            border: 1px solid var(--surface-2);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        input, select {
+            background: var(--surface-2);
+            border: 1px solid transparent;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            border-color: var(--accent);
+        }
+        input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.875rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn:hover { background: var(--accent-light); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: var(--surface-2);
+            border: 1px solid var(--surface-2);
+        }
+        .btn-secondary:hover {
+            background: var(--surface);
+            border-color: var(--accent);
+        }
+        .btn-danger {
+            background: var(--error);
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .call-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (min-width: 500px) {
+            .call-controls {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.25rem;
+            background: var(--surface-2);
+            border-radius: 0.5rem;
+        }
+        .mode-option {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            text-align: center;
+            border-radius: 0.35rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .mode-option.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .chat-area {
+            flex: 1;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--surface-2);
+            border-radius: 0.75rem;
+        }
+
+        .message {
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+        .message.bot {
+            align-self: flex-start;
+            background: var(--surface);
+            border-bottom-left-radius: 0.25rem;
+        }
+        .message.human {
+            align-self: flex-end;
+            background: var(--accent);
+            border-bottom-right-radius: 0.25rem;
+        }
+        .message-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 0.75rem;
+        }
+        .input-area input {
+            flex: 1;
+        }
+
+        .spinner {
+            width: 1.2rem;
+            height: 1.2rem;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .hidden { display: none !important; }
+
+        .voice-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1rem;
+        }
+        .voice-waves {
+            display: flex;
+            gap: 3px;
+            height: 30px;
+            align-items: center;
+        }
+        .voice-wave {
+            width: 4px;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+        .voice-wave.active {
+            background: var(--success);
+        }
+
+        .settings-drawer {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            max-width: 100%;
+            height: 100vh;
+            background: var(--surface);
+            border-left: 1px solid var(--surface-2);
+            transition: right 0.3s;
+            z-index: 100;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+        .settings-drawer.open {
+            right: 0;
+        }
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 99;
+        }
+        .settings-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .settings-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .settings-header h2 {
+            font-size: 1.25rem;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+        .close-btn:hover {
+            color: var(--text);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--surface-2);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <span class="logo">🎙️</span>
+        <span class="brand">BotCall</span>
+        <span id="connectionStatus" class="status offline">Offline</span>
+    </header>
+
+    <main class="main">
+        <!-- Connection Card -->
+        <div id="connectCard" class="card">
+            <div class="input-group">
+                <label for="discoveryUrl">Discovery Server</label>
+                <input type="text" id="discoveryUrl" placeholder="http://localhost:8080" value="http://localhost:8080">
+            </div>
+            <div class="input-group">
+                <label for="botId">Bot ID</label>
+                <input type="text" id="botId" placeholder="orion" value="orion">
+            </div>
+            <button id="connectBtn" class="btn">
+                <span>Connect to Bot</span>
+            </button>
+        </div>
+
+        <!-- Active Call Card -->
+        <div id="callCard" class="card hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <h3 style="font-size: 1.1rem;">Connected to <span id="activeBotId">orion</span></h3>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Call duration: <span id="callDuration">00:00</span></p>
+                </div>
+                <div class="mode-toggle">
+                    <div class="mode-option active" data-mode="voice">🎤 Voice</div>
+                    <div class="mode-option" data-mode="text">⌨️ Text</div>
+                </div>
+            </div>
+
+            <!-- Voice Mode UI -->
+            <div id="voiceMode" class="voice-indicator">
+                <div class="voice-waves" id="voiceWaves">
+                    <div class="voice-wave" style="height: 15px;"></div>
+                    <div class="voice-wave" style="height: 20px;"></div>
+                    <div class="voice-wave" style="height: 25px;"></div>
+                    <div class="voice-wave" style="height: 20px;"></div>
+                    <div class="voice-wave" style="height: 15px;"></div>
+                </div>
+                <span id="voiceStatus">Ready to speak</span>
+            </div>
+
+            <!-- Text Mode UI -->
+            <div id="textMode" class="chat-area hidden">
+                <!-- Messages appear here -->
+            </div>
+
+            <div class="input-area" id="textInputArea" style="margin-top: 1rem;">
+                <input type="text" id="messageInput" placeholder="Type your message..." disabled>
+                <button id="sendBtn" class="btn btn-secondary" disabled>Send</button>
+            </div>
+
+            <div class="call-controls" style="margin-top: 1rem;">
+                <button id="muteBtn" class="btn btn-secondary">🔇 Mute</button>
+                <button id="settingsBtn" class="btn btn-secondary">⚙️ Settings</button>
+                <button id="hangupBtn" class="btn btn-danger">📞 Hang Up</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Drawer -->
+    <div id="settingsOverlay" class="settings-overlay"></div>
+    <div id="settingsDrawer" class="settings-drawer">
+        <div class="settings-header">
+            <h2>Settings</h2>
+            <button id="closeSettings" class="close-btn">×</button>
+        </div>
+        
+        <div class="input-group">
+            <label for="ttsVoice">TTS Voice (Browser)</label>
+            <select id="ttsVoice">
+                <option value="">System Default</option>
+            </select>
+        </div>
+        
+        <div class="input-group">
+            <label for="ttsRate">Speech Rate</label>
+            <input type="range" id="ttsRate" min="0.5" max="2" step="0.1" value="1">
+        </div>
+        
+        <div class="input-group">
+            <label for="sttLang">Speech Recognition Language</label>
+            <select id="sttLang">
+                <option value="en-US">English (US)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="es-ES">Spanish</option>
+                <option value="fr-FR">French</option>
+                <option value="de-DE">German</option>
+                <option value="ja-JP">Japanese</option>
+            </select>
+        </div>
+        
+        <div class="input-group">
+            <label>
+                <input type="checkbox" id="autoSendStt" checked>
+                Auto-send speech-to-text
+            </label>
+        </div>
+    </div>
+
+    <footer class="footer">
+        Powered by BotCall · 🌌 The voice layer for the agentic web
+    </footer>
+
+    <script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

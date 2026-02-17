@@ -1,0 +1,16 @@
+{
+  "name": "BotCall",
+  "short_name": "BotCall",
+  "description": "Voice calling for AI agents and humans",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>",
+      "sizes": "144x144",
+      "type": "image/svg+xml"
+    }
+  ]
+}
