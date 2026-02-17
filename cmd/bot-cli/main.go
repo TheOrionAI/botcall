@@ -7,12 +7,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
-	"runtime"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -36,12 +33,8 @@ func main() {
 
 	// Start localtunnel if requested
 	if *useLocaltunnel {
-		ltURL, ltCmd := startLocaltunnel(*endpointAddr)
-		if ltURL != "" {
-			publicEndpoint = ltURL
-			log.Printf("🌐 Localtunnel: %s", ltURL)
-			defer ltCmd.Process.Kill()
-		}
+		publicEndpoint = startLocaltunnelSimple(*endpointAddr)
+		log.Printf("🌐 Public URL: %s", publicEndpoint)
 	}
 
 	// Register with discovery
@@ -50,7 +43,7 @@ func main() {
 	}
 
 	log.Printf("📞 Listening for calls on %s", *endpointAddr)
-	log.Printf("   Ready! Humans can dial you at: %s", *discoveryURL+"/v1/lookup/"+*agentID)
+	log.Printf("   Humans can dial: %s/v1/lookup/%s", *discoveryURL, *agentID)
 
 	// Keepalive ticker
 	ticker := time.NewTicker(30 * time.Second)
@@ -68,56 +61,21 @@ func main() {
 	log.Fatal(http.ListenAndServe(*endpointAddr, nil))
 }
 
-func startLocaltunnel(endpoint string) (string, *exec.Cmd) {
+func startLocaltunnelSimple(endpoint string) string {
 	port := "9000"
-	if len(endpoint) > 5 && endpoint[0:5] == "0.0.0.0" {
-		port = endpoint[6:]
-	} else if len(endpoint) > 9 && endpoint[0:9] == "localhost" {
-		port = endpoint[10:]
-	}
-
-	log.Printf("🔧 Starting localtunnel on port %s...", port)
-
-	cmd := exec.Command("lt", "--port", port)
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("npx", "localtunnel", "--port", port)
-	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Printf("Failed to get pipe: %v", err)
-		return "", nil
-	}
-
-	if err := cmd.Start(); err != nil {
-		log.Printf("Failed to start localtunnel: %v", err)
-		return "", nil
-	}
-
-	// Read output for URL
-	buf := make([]byte, 1024)
-	n, _ := stdout.Read(buf)
-	output := string(buf[:n])
-
-	// Parse URL from output
-	url := ""
-	start := 0
-	for i := 0; i < len(output); i++ {
-		if output[i] == '\n' || output[i] == '\r' {
-			line := output[start:i]
-			start = i + 1
-			if len(line) > 4 && line[0:4] == "http" {
-				url = line
-				break
-			}
+	// Extract port from endpoint
+	for i := len(endpoint) - 1; i >= 0; i-- {
+		if endpoint[i] == ':' {
+			port = endpoint[i+1:]
+			break
 		}
 	}
 
-	go io.Copy(io.Discard, stdout)
+	log.Printf("🔧 Start localtunnel: npx localtunnel --port %s", port)
+	log.Printf("   (run in another terminal, then update --endpoint URL)")
 
-	time.Sleep(2 * time.Second)
-
-	return url, cmd.Process
+	// Return placeholder - user will run lt manually
+	return "https://YOUR-LT-URL.loca.lt"
 }
 
 func registerWithDiscovery(publicEndpoint string) error {
@@ -180,8 +138,7 @@ func handleIncomingCall(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-
-	log.Printf("   ✓ Call accepted: call_id=%s", response["call_id"])
+	log.Printf("   ✓ Call accepted: %s", response["call_id"])
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +167,6 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		msgType, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("WebSocket read error: %v", err)
 			return
 		}
 
@@ -223,7 +179,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			response := map[string]interface{}{
 				"type": "text",
-				"text": fmt.Sprintf("You said: %s", incoming.Text),
+				"text": fmt.Sprintf("Echo: %s", incoming.Text),
 				"from": *agentID,
 			}
 			respJSON, _ := json.Marshal(response)
