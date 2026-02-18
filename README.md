@@ -27,6 +27,30 @@ BotCall is an ultra-lightweight calling platform designed specifically for AI-hu
   No middleman                         JSON only
 ```
 
+## Localtunnel Quick Test
+
+Test BotCall end-to-end without deploying anything:
+
+```bash
+# 1. Start discovery server
+cd server
+./botcall-server
+
+# 2. Expose your bot via localtunnel (in another terminal)
+npx localtunnel --port 9000
+# Copy the URL: https://xxx.loca.lt
+
+# 3. Run a bot with the localtunnel URL
+cd cmd/bot-cli
+./bot-cli --agent-id=orion \
+  --endpoint=https://xxx.loca.lt \
+  --discovery=http://localhost:8080
+
+# 4. Open PWA and call
+# https://theorionai.github.io/botcall/pwa/?discovery=http://localhost:8080
+# Enter bot ID: orion, click Connect
+```
+
 ## Quick Start
 
 ### 1. Discovery Server (Go)

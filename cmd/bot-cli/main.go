@@ -24,6 +24,14 @@ var (
 func main() {
 	flag.Parse()
 
+	// Fix endpoint format (strip http:// prefix if present)
+	if len(*endpointAddr) > 7 && (*endpointAddr)[0:7] == "http://" {
+		*endpointAddr = (*endpointAddr)[7:]
+	}
+	if len(*endpointAddr) > 8 && (*endpointAddr)[0:8] == "https://" {
+		*endpointAddr = (*endpointAddr)[8:]
+	}
+
 	log.Printf("🤖 BotCall Bot starting...")
 	log.Printf("   Agent ID: %s", *agentID)
 	log.Printf("   Discovery: %s", *discoveryURL)
